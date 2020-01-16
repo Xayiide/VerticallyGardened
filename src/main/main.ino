@@ -210,9 +210,9 @@ int veml7700readLux() {
 
 
 int waterread() {
-    int waterstate = 1;
+    int waterstate = 0;
     if (digitalRead(WATERPIN) == LOW)
-        waterstate = 0;
+        waterstate = 1;
     return waterstate; 
 }
 
