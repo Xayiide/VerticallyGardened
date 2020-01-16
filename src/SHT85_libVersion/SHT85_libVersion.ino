@@ -29,5 +29,3 @@ void SHT85read() {
         Serial.println(sht.getTemperature());
     }
 }
-
-

@@ -7,18 +7,18 @@
 
 
 
-#define YL69PIN   "A0"
-#define WATERPIN  "D7"
+#define YL69PIN   A0
+#define WATERPIN  D7
 #define RELAYPIN  12 /* D6 */
 
-#define TBTOKEN "o5RuPZnyKIPz83F5IppJ"
+#define TBTOKEN "a7PaxAxfBRO0sbfVVf6i"
 
-const char *ssid = "POWER_UP";
-const char *pass = "RosquillaGl4s3ada!";
+const char *ssid = "SBC";
+const char *pass = "sbc$18-maceta";
 char ThingsboardHost[] = "demo.thingsboard.io";
 
 
-WifiClient wc;
+WiFiClient wc;
 PubSubClient client(wc);
 int status = WL_IDLE_STATUS;
 
@@ -71,6 +71,22 @@ void loop() {
 	float temAmbiente = sht85readtemp();
 	int   lux         = veml7700readLux();
 	int   water       = waterread();
+
+  Serial.print("Humedad del suelo: ");
+  Serial.println(humSuelo);
+
+  Serial.print("Humedad ambiente: ");
+  Serial.println(humAmbiente);
+
+  Serial.print("Temperatura ambiente: ");
+  Serial.println(temAmbiente);
+
+  Serial.print("Lux: ");
+  Serial.println(lux);
+
+  Serial.print("Water: ");
+  Serial.println(water);
+  delay(1000);
 }
 
 
@@ -96,7 +112,7 @@ void connectwifi(const char *ssid, const char *pass) {
 
 void shtinit() { /* SHT85 functiona por I2C */
 	sht.init();
-	Serial.println("[*] SHT85 inicializado");:wchar_t
+	Serial.println("[*] SHT85 inicializado");
 }
 
 
@@ -118,7 +134,7 @@ void yl69init() {
 
 
 void waterinit() {
-	pinMode(WATERPIN, INPU);
+	pinMode(WATERPIN, INPUT);
 }
 
 
@@ -143,12 +159,15 @@ float yl69read() {
 
 
 int veml7700readLux() {
-	return veml.readLux());
+	return veml.readLux();
 }
 
 
 int waterread() {
-	digitalRead(WATERPIN) == LOW ? return 1 : return 0;
+    int waterstate = 1;
+    if (digitalRead(WATERPIN) == LOW)
+        waterstate = 0;
+    return waterstate; 
 }
 
 
@@ -160,7 +179,7 @@ void relaystate(int state) {
 		return;
 	
 	Serial.print("[+] Estado del relé cambiado a ");
-	state == 1 ? println("on") : println("off");
+	state == 1 ? Serial.println("on") : Serial.println("off");
 
 	digitalWrite(RELAYPIN, state);
 }
@@ -175,7 +194,7 @@ void reconnect() {
 				delay(500);
 				Serial.print(".");
 			}
-			Serial.printl("\n[+] Connected to AP");
+			Serial.println("\n[+] Connected to AP");
 		}
 		Serial.println("[*] Connecting to Thingsboard node...");
 		if (client.connect("ESP8266", TBTOKEN, NULL)) {
