@@ -1,14 +1,12 @@
 
-
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
-const char* ssid = "POWER_UP";
-const char* password = "RosquillaGl4s3ada!";
+const char* ssid = "SBC";
+const char* password = "sbc$18-maceta";
 
-#define TOKEN1 "o5RuPZnyKIPz83F5IppJ" //Access token of device Display
 #define TOKEN2 "HtsQJrRn80mXL4YHJp6a" //Access token of device Display
-#define WATER_SENSOR D8
+#define WATER_SENSOR D6
 char ThingsboardHost[] = "demo.thingsboard.io";
 
 WiFiClient wifiClient;
@@ -27,7 +25,7 @@ void setup()
   Serial.print("connected to");
   Serial.println(ssid);
   client.setServer( ThingsboardHost, 1883 );
-  pinMode(A0, INPUT); //YL69
+  //pinMode(A0, INPUT); //YL69
   pinMode(WATER_SENSOR, INPUT); //Water_sensor 
 }
 
@@ -37,33 +35,22 @@ if ( !client.connected() )
 {
     reconnect();
 }
-getAndSendTemperatureAndHumidityData();
-  delay(5000);
   isExposedToWater();
-  delay(5000);
+  delay(2000);
 }
 
-void getAndSendTemperatureAndHumidityData()
-{
-  
- int hum = analogRead(A0);
-  // Prepare a JSON payload string
-  String humeda = "{";
- humeda += "\"Humidity\":";humeda += hum;
-  humeda += "}";
-
-  char attributes[1000];
-  humeda.toCharArray( attributes, 1000 );
-  client.publish( "v1/devices/me/telemetry",attributes);
-  Serial.println( attributes );
-   
-}
 
 void isExposedToWater()
 {
-  int water = digitalRead(WATER_SENSOR);
+  boolean waterstate=false;
+  if(digitalRead(WATER_SENSOR) == LOW)
+  waterstate = true;
+  else waterstate= false;
+  
+  Serial.print("[+] water: ");
+  Serial.println(waterstate);
   String payload = "{";
-  payload += "\"Agua\":";payload += water;
+  payload += "\"Agua\":";payload += waterstate;
   payload += "}";
 
   char attributes[1000];
@@ -88,14 +75,6 @@ void reconnect() {
     }
     Serial.print("Connecting to ThingsBoard node ...");
     // Attempt to connect (clientId, username, password)
-    if ( client.connect("Esp8266", TOKEN1, NULL) ) {
-      Serial.println( "[DONE]" );
-    } else {
-      Serial.print( "[FAILED] [ rc = " );
-      Serial.println( " : retrying in 5 seconds]" );
-      delay( 500 );
-    }
-
       if ( client.connect("Esp8266", TOKEN2, NULL) ) {
       Serial.println( "[DONE]" );
     } else {
