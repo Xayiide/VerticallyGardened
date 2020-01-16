@@ -11,7 +11,7 @@
 #define WATERPIN  D7
 #define RELAYPIN  12 /* D6 */
 
-#define TBTOKEN "a7PaxAxfBRO0sbfVVf6i"
+#define TBTOKEN "q4M2LoLE5GeWvSvsuFj9"
 
 const char *ssid = "SBC";
 const char *pass = "sbc$18-maceta";
@@ -66,27 +66,73 @@ void loop() {
 	if (!client.connected())
 		reconnect();
 
+  char attributes[1000];
+    
 	float humSuelo    = yl69read();
 	float humAmbiente = sht85readhum();
 	float temAmbiente = sht85readtemp();
 	int   lux         = veml7700readLux();
 	int   water       = waterread();
+  
 
   Serial.print("Humedad del suelo: ");
   Serial.println(humSuelo);
 
+  String humedadSuelo = "{";
+  humedadSuelo += "\"Humedad suelo\":";
+  humedadSuelo += humSuelo;
+  humedadSuelo += "}";
+  humedadSuelo.toCharArray( attributes, 1000 );
+
+  client.publish( "v1/devices/me/telemetry",attributes);
+  
+
   Serial.print("Humedad ambiente: ");
   Serial.println(humAmbiente);
+
+  String humedadAmbiente = "{";
+  humedadAmbiente += "\"Humedad ambiente\":";
+  humedadAmbiente += humAmbiente;
+  humedadAmbiente += "}";
+  humedadAmbiente.toCharArray( attributes, 1000 );
+
+  client.publish( "v1/devices/me/telemetry",attributes);
 
   Serial.print("Temperatura ambiente: ");
   Serial.println(temAmbiente);
 
+  String temperatura = "{";
+  temperatura += "\"Temperatura\":";
+  temperatura += temAmbiente;
+  temperatura += "}";
+  temperatura.toCharArray( attributes, 1000 );
+
+  client.publish( "v1/devices/me/telemetry",attributes);
+
   Serial.print("Lux: ");
   Serial.println(lux);
 
+  String luz = "{";
+  luz += "\"Luz\":";
+  luz += lux;
+  luz += "}";
+  luz.toCharArray( attributes, 1000 );
+
+  client.publish( "v1/devices/me/telemetry",attributes);
+
   Serial.print("Water: ");
   Serial.println(water);
+
+  String agua = "{";
+  agua += "\"Agua\":";
+  agua += water;
+  agua += "}";
+  agua.toCharArray( attributes, 1000 );
+  
   delay(1000);
+
+  client.publish( "v1/devices/me/telemetry",attributes);
+  Serial.println( attributes );
 }
 
 
