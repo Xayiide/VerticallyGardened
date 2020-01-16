@@ -7,6 +7,8 @@ void setup() {
     Wire.begin();
     delay(100);
 
+    setperiodic();
+
 }
 
 void loop() {
