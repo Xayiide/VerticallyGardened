@@ -22,3 +22,12 @@ con ello.
 
 ### PubSubClient.h
 Librería para MQTT. La utilizaremos para mandar toda la data a Thingsboard.
+
+### ESP8266mDNS.h
+Librería necesaria para OTA.
+
+### WiFiUdp.h
+Librería necesaria para OTA.
+
+### ArduinoOTA.h
+Librería necesaria para OTA.
