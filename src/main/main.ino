@@ -25,8 +25,8 @@
 #define HUMHIGHTH     70
 #define TEMPLOWTH     10
 #define TEMPHIGHTH    40
-#define SOILHUMLOWTH  330
-#define SOILHUMHIGHTH 660
+#define SOILHUMLOWTH  800
+#define SOILHUMHIGHTH 400
 #define LUXLOWTH      20
 #define LUXHIGHTH     6000
 
@@ -177,13 +177,15 @@ void waterinit() {
 /**************************************************************************
  * * * * * * * * * * * * * * READ FROM SENSORS * * * * * * * * * * * * * * 
  **************************************************************************/
+/* La humedad va al reves. 1024 significa seco y 0 significa muy mojado.
+   Por eso si el valor leido es mayor que el th low es que está seco */
 float sht85readhum() {
 	sht.readSample();
 	float hum = sht.getHumidity();
-	if (hum <= HUMLOWTH) {
+	if (hum >= HUMLOWTH) {
 		Serial.println("[!!] El ambiente es demasiado seco.");
 	}
-	else if (hum >= HUMHIGHTH) {
+	else if (hum <= HUMHIGHTH) {
 		Serial.println("[!!] El ambiente es demasiado húmedo.");
 	}
 	Serial.print("[+] Humedad ambiente: ");
