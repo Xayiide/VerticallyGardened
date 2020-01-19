@@ -31,3 +31,6 @@ Librería necesaria para OTA.
 
 ### ArduinoOTA.h
 Librería necesaria para OTA.
+
+### NTPClient.h
+Librería para utilizar tiempo y medir el tiempo que pasa.

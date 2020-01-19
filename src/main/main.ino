@@ -1,5 +1,7 @@
 #include <ESP8266WiFi.h>
 #include <Wire.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
 #include <SHTSensor.h>
 #include <Adafruit_VEML7700.h>
@@ -11,14 +13,42 @@
 #define WATERPIN  D7
 #define RELAYPIN  12 /* D6 */
 
+#define RELAYH 9
+#define RELAYM 0
+#define RELAYS 0
+#define RELAYD 1800 /* Tiempo que el rele estara activado. 0 si no se usa */
+
+#define ATTRLEN 128 /* Longitud de los atributos que mandamos a thingsboard*/
+
+/* Thresholds de los datos a enviar. Valores limite por encima y por debajo */
+#define HUMLOWTH      30
+#define HUMHIGHTH     70
+#define TEMPLOWTH     10
+#define TEMPHIGHTH    40
+#define SOILHUMLOWTH  330
+#define SOILHUMHIGHTH 660
+#define LUXLOWTH      20
+#define LUXHIGHTH     6000
+
+
+
 #define TBTOKEN "q4M2LoLE5GeWvSvsuFj9"
 
-const char *ssid = "SBC";
-const char *pass = "sbc$18-maceta";
-char ThingsboardHost[] = "demo.thingsboard.io";
+unsigned long actTime = 0; /* Guarda el tiempo en el que se activa el rele */
+
+const char *ssid        = "SBC";
+const char *pass        = "sbc$18-maceta";
+const char *devapi      = "v1/devices/me/telemetry";
+const long utcoff       = 3600; /* UTC Offset -> Madrid = UTC + 1 */
+char  ThingsboardHost[] = "demo.thingsboard.io";
+
+char  ntpServer[]       = "europe.pool.ntp.org";
 
 
-WiFiClient wc;
+WiFiUDP   udp;
+NTPClient tc(udp, ntpServer, utcoff);
+
+WiFiClient   wc;
 PubSubClient client(wc);
 int status = WL_IDLE_STATUS;
 
@@ -34,17 +64,25 @@ void veml7700init();
 void yl69init();
 void waterinit();
 
-/* Read from sensors */
+/* Leer de los sensores */
 float sht85readhum();
 float sht85readtemp();
 float yl69read();
 int   waterread();
 int   veml7700readLux();
 
-/* Change things */
+/* Enviar data de sensores a Thingsboard */
+void sht85humsend(float);
+void sht85tempsend(float);
+void yl69send(float);
+void watersend(int);
+void veml7700luxsend(int);
+
+
+/* Modificar cosas del sistema */
 void relaystate(int);
 void reconnect();
-
+void checkrelay();
 
 void setup() {
 	Serial.begin(115200);
@@ -57,7 +95,8 @@ void setup() {
 
 	pinMode(RELAYPIN, OUTPUT); // Relay pin -> D6
 	connectwifi(ssid, pass);
-	client.setServer(ThingsboardHost, 1883);
+	client.setServer(ThingsboardHost, 1883); /* Set el published de MQTT */
+	tc.begin(); /* Inicia cliente de NTP */
 }
 
 
@@ -66,73 +105,22 @@ void loop() {
 	if (!client.connected())
 		reconnect();
 
-  char attributes[1000];
-    
+	tc.update(); /* Update NTP client time */
+	checkrelay(); /* Check if relay should be activated or deactivated */
+
 	float humSuelo    = yl69read();
 	float humAmbiente = sht85readhum();
 	float temAmbiente = sht85readtemp();
 	int   lux         = veml7700readLux();
 	int   water       = waterread();
-  
 
-  Serial.print("Humedad del suelo: ");
-  Serial.println(humSuelo);
+	yl69send(humSuelo);
+	sht85humsend(humAmbiente);
+	sht85tempsend(temAmbiente);
+	veml7700luxsend(lux);
+	watersend(water);
 
-  String humedadSuelo = "{";
-  humedadSuelo += "\"Humedad suelo\":";
-  humedadSuelo += humSuelo;
-  humedadSuelo += "}";
-  humedadSuelo.toCharArray( attributes, 1000 );
-
-  client.publish( "v1/devices/me/telemetry",attributes);
-  
-
-  Serial.print("Humedad ambiente: ");
-  Serial.println(humAmbiente);
-
-  String humedadAmbiente = "{";
-  humedadAmbiente += "\"Humedad ambiente\":";
-  humedadAmbiente += humAmbiente;
-  humedadAmbiente += "}";
-  humedadAmbiente.toCharArray( attributes, 1000 );
-
-  client.publish( "v1/devices/me/telemetry",attributes);
-
-  Serial.print("Temperatura ambiente: ");
-  Serial.println(temAmbiente);
-
-  String temperatura = "{";
-  temperatura += "\"Temperatura\":";
-  temperatura += temAmbiente;
-  temperatura += "}";
-  temperatura.toCharArray( attributes, 1000 );
-
-  client.publish( "v1/devices/me/telemetry",attributes);
-
-  Serial.print("Lux: ");
-  Serial.println(lux);
-
-  String luz = "{";
-  luz += "\"Luz\":";
-  luz += lux;
-  luz += "}";
-  luz.toCharArray( attributes, 1000 );
-
-  client.publish( "v1/devices/me/telemetry",attributes);
-
-  Serial.print("Water: ");
-  Serial.println(water);
-
-  String agua = "{";
-  agua += "\"Agua\":";
-  agua += water;
-  agua += "}";
-  agua.toCharArray( attributes, 1000 );
-  
-  delay(1000);
-
-  client.publish( "v1/devices/me/telemetry",attributes);
-  Serial.println( attributes );
+	delay(1000);
 }
 
 
@@ -189,32 +177,120 @@ void waterinit() {
  **************************************************************************/
 float sht85readhum() {
 	sht.readSample();
-	return sht.getHumidity();
+	float hum = sht.getHumidity();
+	if (hum <= HUMLOWTH) {
+		Serial.println("[!!] El ambiente es demasiado seco.");
+	}
+	else if (hum >= HUMHIGHTH) {
+		Serial.println("[!!] El ambiente es demasiado húmedo.");
+	}
+	return hum;
 }
 
 
 float sht85readtemp() {
 	sht.readSample();
-	return sht.getTemperature();
+	float temp = sht.getTemperature();
+	if (temp <= TEMPLOWTH) {
+		Serial.println("[!!] La temperatura es demasiado baja.");
+	}
+	else if (temp >= TEMPHIGHTH) {
+		Serial.println("[!!] La temperatura es demasiado alta.");
+	}
+	return temp;
 }
 
 
 float yl69read() {
-	return analogRead(A0);
+	float soilhum = analogRead(YL69PIN);
+	if (soilhum <= SOILHUMLOWTH) {
+		Serial.println("[!!] La humedad del suelo es demasiado baja.");
+	}
+	else if (soilhum >= SOILHUMHIGHTH) {
+		Serial.println("[!!] La humedad del suelo es demasiado alta.");
+	}
+	return soilhum;
 }
 
 
 int veml7700readLux() {
-	return veml.readLux();
+	int lux = veml.readLux();
+	if (lux <= LUXLOWTH) {
+		Serial.println("[!!] La cantidad de luz no es suficiente.");
+	}
+	else if (lux >= LUXHIGHTH) {
+		Serial.println("[!!] La cantidad de luz es demasiado alta.");
+	}
+	return lux;
 }
 
 
 int waterread() {
-    int waterstate = 0;
-    if (digitalRead(WATERPIN) == LOW)
-        waterstate = 1;
-    return waterstate; 
+	int waterstate = 0;
+	if (digitalRead(WATERPIN) == LOW)
+		waterstate = 1;
+	return waterstate; 
 }
+
+/**************************************************************************
+ * * * * * * * * * * * * * * * SEND SENSOR DATA * * * * * * * * * * * * * * 
+ **************************************************************************/
+void sht85humsend(float humAmbiente) {
+	char attr[ATTRLEN];
+	memset(attr, 0, sizeof(attr));
+	String humedadAmbiente = "{";
+	humedadAmbiente += "\"Humedad ambiente\":";
+	humedadAmbiente += humAmbiente;
+	humedadAmbiente += "}";
+	humedadAmbiente.toCharArray(attr, ATTRLEN);
+	client.publish(devapi, attr);
+}
+
+void sht85tempsend(float temAmbiente) {
+	char attr[ATTRLEN];
+	memset(attr, 0, sizeof(attr));
+	String temperatura = "{";
+	temperatura += "\"Temperatura\":";
+	temperatura += temAmbiente;
+	temperatura += "}";
+	temperatura.toCharArray(attr, ATTRLEN);
+	client.publish(devapi, attr);
+}
+
+void yl69send(float humSuelo) {
+	char attr[ATTRLEN];
+	memset(attr, 0, sizeof(attr));
+	String humedadSuelo = "{";
+	humedadSuelo += "\"Humedad suelo\":";
+	humedadSuelo += humSuelo;
+	humedadSuelo += "}";
+	humedadSuelo.toCharArray(attr, ATTRLEN);
+	client.publish(devapi, attr);
+}
+
+void watersend(int water) {
+	char attr[ATTRLEN];
+	memset(attr, 0, sizeof(attr));
+	String agua = "{";
+	agua += "\"Agua\":";
+	agua += water;
+	agua += "}";
+	agua.toCharArray(attr, ATTRLEN);
+	client.publish(devapi ,attr);
+}
+
+void veml7700luxsend(int lux) {
+	char attr[ATTRLEN];
+	memset(attr, 0, sizeof(attr));
+	String luz = "{";
+	luz += "\"Luz\":";
+	luz += lux;
+	luz += "}";
+	luz.toCharArray(attr, ATTRLEN);
+	client.publish(devapi, attr);
+}
+
+
 
 
 /**************************************************************************
@@ -229,7 +305,6 @@ void relaystate(int state) {
 
 	digitalWrite(RELAYPIN, state);
 }
-
 
 void reconnect() {
 	while (!client.connected()) {
@@ -253,6 +328,23 @@ void reconnect() {
 	}
 }
 
+void checkrelay() {
+	if (tc.getHours()   == RELAYH &&
+		tc.getMinutes() == RELAYM &&
+		tc.getSeconds() == RELAYS) {
+			relaystate(1);
+			actTime = tc.getEpochTime();
+	}
+
+	if (RELAYD) {
+		if (tc.getEpochTime() >= actTime + RELAYD) /* Activation time passed */
+			relaystate(0);
+	}
+	else {
+		if (waterread())
+			relaystate(0);
+	}
+}
 
 
 
