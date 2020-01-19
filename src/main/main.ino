@@ -257,7 +257,6 @@ void sht85humsend(float humAmbiente) {
 	humedadAmbiente += humAmbiente;
 	humedadAmbiente += "}";
 	humedadAmbiente.toCharArray(attr, ATTRLEN);
-	Serial.println("[+] Sending humedad ambiente");
 	client.publish(devapi, attr);
 }
 
@@ -269,7 +268,6 @@ void sht85tempsend(float temAmbiente) {
 	temperatura += temAmbiente;
 	temperatura += "}";
 	temperatura.toCharArray(attr, ATTRLEN);
-	Serial.println("[+] Sending temperatura ambiente");
 	client.publish(devapi, attr);
 }
 
@@ -281,7 +279,6 @@ void yl69send(float humSuelo) {
 	humedadSuelo += humSuelo;
 	humedadSuelo += "}";
 	humedadSuelo.toCharArray(attr, ATTRLEN);
-	Serial.println("[+] Sending humedad soil");
 	client.publish(devapi, attr);
 }
 
@@ -293,7 +290,6 @@ void watersend(int water) {
 	agua += water;
 	agua += "}";
 	agua.toCharArray(attr, ATTRLEN);
-	Serial.println("[+] Sending agua");
 	client.publish(devapi ,attr);
 }
 
@@ -305,7 +301,6 @@ void veml7700luxsend(int lux) {
 	luz += lux;
 	luz += "}";
 	luz.toCharArray(attr, ATTRLEN);
-	Serial.println("[+] Sending lux");
 	client.publish(devapi, attr);
 }
 
