@@ -337,7 +337,7 @@ void checkrelay() {
 	}
 
 	if (RELAYD) {
-		if (tc.getEpochTime() >= actTime + RELAYD) /* Activation time passed */
+		if (tc.getEpochTime() >= actTime + RELAYD) /* El rele se apaga */
 			relaystate(0);
 	}
 	else {
