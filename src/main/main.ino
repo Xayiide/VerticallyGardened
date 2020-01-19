@@ -164,11 +164,13 @@ void veml7700init() { /* VEML7700 funciona por I2C. */
 
 void yl69init() {
 	pinMode(YL69PIN, INPUT);
+	Serial.println("[*] YL69 inicializado");
 }
 
 
 void waterinit() {
 	pinMode(WATERPIN, INPUT);
+	Serial.println("[*] Water inicializado");
 }
 
 
@@ -184,6 +186,8 @@ float sht85readhum() {
 	else if (hum >= HUMHIGHTH) {
 		Serial.println("[!!] El ambiente es demasiado húmedo.");
 	}
+	Serial.print("[+] Humedad ambiente: ");
+	Serial.println(hum);
 	return hum;
 }
 
@@ -197,6 +201,8 @@ float sht85readtemp() {
 	else if (temp >= TEMPHIGHTH) {
 		Serial.println("[!!] La temperatura es demasiado alta.");
 	}
+	Serial.print("[+] Temperatura: ");
+	Serial.println(temp);
 	return temp;
 }
 
@@ -209,6 +215,8 @@ float yl69read() {
 	else if (soilhum >= SOILHUMHIGHTH) {
 		Serial.println("[!!] La humedad del suelo es demasiado alta.");
 	}
+	Serial.print("[+] Humedad soil: ");
+	Serial.println(soilhum);
 	return soilhum;
 }
 
@@ -221,6 +229,8 @@ int veml7700readLux() {
 	else if (lux >= LUXHIGHTH) {
 		Serial.println("[!!] La cantidad de luz es demasiado alta.");
 	}
+	Serial.print("[+] Lux: ");
+	Serial.println(lux);
 	return lux;
 }
 
@@ -229,6 +239,8 @@ int waterread() {
 	int waterstate = 0;
 	if (digitalRead(WATERPIN) == LOW)
 		waterstate = 1;
+	Serial.print("[+] Agua: ");
+	Serial.println(waterstate);
 	return waterstate; 
 }
 
@@ -243,6 +255,7 @@ void sht85humsend(float humAmbiente) {
 	humedadAmbiente += humAmbiente;
 	humedadAmbiente += "}";
 	humedadAmbiente.toCharArray(attr, ATTRLEN);
+	Serial.println("[+] Sending humedad ambiente");
 	client.publish(devapi, attr);
 }
 
@@ -254,6 +267,7 @@ void sht85tempsend(float temAmbiente) {
 	temperatura += temAmbiente;
 	temperatura += "}";
 	temperatura.toCharArray(attr, ATTRLEN);
+	Serial.println("[+] Sending temperatura ambiente");
 	client.publish(devapi, attr);
 }
 
@@ -265,6 +279,7 @@ void yl69send(float humSuelo) {
 	humedadSuelo += humSuelo;
 	humedadSuelo += "}";
 	humedadSuelo.toCharArray(attr, ATTRLEN);
+	Serial.println("[+] Sending humedad soil");
 	client.publish(devapi, attr);
 }
 
@@ -276,6 +291,7 @@ void watersend(int water) {
 	agua += water;
 	agua += "}";
 	agua.toCharArray(attr, ATTRLEN);
+	Serial.println("[+] Sending agua");
 	client.publish(devapi ,attr);
 }
 
@@ -287,6 +303,7 @@ void veml7700luxsend(int lux) {
 	luz += lux;
 	luz += "}";
 	luz.toCharArray(attr, ATTRLEN);
+	Serial.println("[+] Sending lux");
 	client.publish(devapi, attr);
 }
 
