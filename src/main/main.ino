@@ -120,7 +120,8 @@ void loop() {
 	veml7700luxsend(lux);
 	watersend(water);
 
-	delay(1000);
+	delay(2000);
+  Serial.print("\n\n\n\n");
 }
 
 
@@ -177,15 +178,13 @@ void waterinit() {
 /**************************************************************************
  * * * * * * * * * * * * * * READ FROM SENSORS * * * * * * * * * * * * * * 
  **************************************************************************/
-/* La humedad va al reves. 1024 significa seco y 0 significa muy mojado.
-   Por eso si el valor leido es mayor que el th low es que está seco */
 float sht85readhum() {
 	sht.readSample();
 	float hum = sht.getHumidity();
-	if (hum >= HUMLOWTH) {
+	if (hum <= HUMLOWTH) {
 		Serial.println("[!!] El ambiente es demasiado seco.");
 	}
-	else if (hum <= HUMHIGHTH) {
+	else if (hum >= HUMHIGHTH) {
 		Serial.println("[!!] El ambiente es demasiado húmedo.");
 	}
 	Serial.print("[+] Humedad ambiente: ");
@@ -208,13 +207,14 @@ float sht85readtemp() {
 	return temp;
 }
 
-
+/* La humedad va al reves. 1024 significa seco y 0 significa muy mojado.
+   Por eso si el valor leido es mayor que el th low es que está seco */
 float yl69read() {
 	float soilhum = analogRead(YL69PIN);
-	if (soilhum <= SOILHUMLOWTH) {
+	if (soilhum >= SOILHUMLOWTH) { /* 800-1024 */
 		Serial.println("[!!] La humedad del suelo es demasiado baja.");
 	}
-	else if (soilhum >= SOILHUMHIGHTH) {
+	else if (soilhum <= SOILHUMHIGHTH) { /* 0-400 */
 		Serial.println("[!!] La humedad del suelo es demasiado alta.");
 	}
 	Serial.print("[+] Humedad soil: ");
