@@ -25,8 +25,8 @@
 #define HUMHIGHTH     70
 #define TEMPLOWTH     10
 #define TEMPHIGHTH    40
-#define SOILHUMLOWTH  330
-#define SOILHUMHIGHTH 660
+#define SOILHUMLOWTH  800
+#define SOILHUMHIGHTH 400
 #define LUXLOWTH      20
 #define LUXHIGHTH     6000
 
@@ -120,7 +120,8 @@ void loop() {
 	veml7700luxsend(lux);
 	watersend(water);
 
-	delay(1000);
+	delay(2000);
+  Serial.print("\n\n\n\n");
 }
 
 
@@ -164,11 +165,13 @@ void veml7700init() { /* VEML7700 funciona por I2C. */
 
 void yl69init() {
 	pinMode(YL69PIN, INPUT);
+	Serial.println("[*] YL69 inicializado");
 }
 
 
 void waterinit() {
 	pinMode(WATERPIN, INPUT);
+	Serial.println("[*] Water inicializado");
 }
 
 
@@ -184,6 +187,8 @@ float sht85readhum() {
 	else if (hum >= HUMHIGHTH) {
 		Serial.println("[!!] El ambiente es demasiado húmedo.");
 	}
+	Serial.print("[+] Humedad ambiente: ");
+	Serial.println(hum);
 	return hum;
 }
 
@@ -197,18 +202,23 @@ float sht85readtemp() {
 	else if (temp >= TEMPHIGHTH) {
 		Serial.println("[!!] La temperatura es demasiado alta.");
 	}
+	Serial.print("[+] Temperatura: ");
+	Serial.println(temp);
 	return temp;
 }
 
-
+/* La humedad va al reves. 1024 significa seco y 0 significa muy mojado.
+   Por eso si el valor leido es mayor que el th low es que está seco */
 float yl69read() {
 	float soilhum = analogRead(YL69PIN);
-	if (soilhum <= SOILHUMLOWTH) {
+	if (soilhum >= SOILHUMLOWTH) { /* 800-1024 */
 		Serial.println("[!!] La humedad del suelo es demasiado baja.");
 	}
-	else if (soilhum >= SOILHUMHIGHTH) {
+	else if (soilhum <= SOILHUMHIGHTH) { /* 0-400 */
 		Serial.println("[!!] La humedad del suelo es demasiado alta.");
 	}
+	Serial.print("[+] Humedad soil: ");
+	Serial.println(soilhum);
 	return soilhum;
 }
 
@@ -221,6 +231,8 @@ int veml7700readLux() {
 	else if (lux >= LUXHIGHTH) {
 		Serial.println("[!!] La cantidad de luz es demasiado alta.");
 	}
+	Serial.print("[+] Lux: ");
+	Serial.println(lux);
 	return lux;
 }
 
@@ -229,6 +241,8 @@ int waterread() {
 	int waterstate = 0;
 	if (digitalRead(WATERPIN) == LOW)
 		waterstate = 1;
+	Serial.print("[+] Agua: ");
+	Serial.println(waterstate);
 	return waterstate; 
 }
 
