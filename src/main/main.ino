@@ -17,6 +17,7 @@
 #define YL69PIN   A0
 #define WATERPIN  D7
 #define RELAYPIN  12 /* D6 */
+#define FLASHPIN  D3
 
 #define RELAYH 9 /* Hora a la que se activa el rele */
 #define RELAYM 0 /* Minuto                          */
@@ -39,8 +40,8 @@
 
 unsigned long actTime = 0; /* Guarda el tiempo en el que se activa el rele */
 
-const char *ssid        = "SBC";
-const char *pass        = "sbc$18-maceta";
+const char *ssid        = "POWER_UP";
+const char *pass        = "RosquillaGl4s3ada!";
 const char *devapi      = "v1/devices/me/telemetry";
 const long utcoff       = 3600; /* UTC Offset -> Madrid = UTC + 1 */
 char  ThingsboardHost[] = "demo.thingsboard.io";
@@ -92,6 +93,8 @@ void setup() {
 	Wire.begin();
 
 	pinMode(RELAYPIN, OUTPUT); // Relay pin -> D6
+  pinMode(D3, INPUT);        // Flash Button
+  pinMode(D4, OUTPUT);
 	connectwifi(ssid, pass);
 
 	// Default values:
@@ -166,6 +169,10 @@ void loop() {
 	veml7700luxsend(lux);
 	watersend(water);
 
+  int st = 0;
+  st = digitalRead(FLASHPIN);
+  digitalWrite(D4, st);
+  relaystate(st);
 	delay(2000);
 	Serial.print("\n\n\n\n");
 }
@@ -295,7 +302,7 @@ void sht85humsend(float humAmbiente) {
 	char attr[ATTRLEN];
 	memset(attr, 0, sizeof(attr));
 	String humedadAmbiente = "{";
-	humedadAmbiente += "\"Humedad ambiente\":";
+	humedadAmbiente += "\"Humedad_ambiente\":";
 	humedadAmbiente += humAmbiente;
 	humedadAmbiente += "}";
 	humedadAmbiente.toCharArray(attr, ATTRLEN);
@@ -317,7 +324,7 @@ void yl69send(float humSuelo) {
 	char attr[ATTRLEN];
 	memset(attr, 0, sizeof(attr));
 	String humedadSuelo = "{";
-	humedadSuelo += "\"Humedad suelo\":";
+	humedadSuelo += "\"Humedad_suelo\":";
 	humedadSuelo += humSuelo;
 	humedadSuelo += "}";
 	humedadSuelo.toCharArray(attr, ATTRLEN);
@@ -347,14 +354,14 @@ void veml7700luxsend(int lux) {
 }
 
 
-
-
 /**************************************************************************
  * * * * * * * * * * * * * * CHANGE CONFIGURATION * * * * * * * * * * * * * 
  **************************************************************************/
 void relaystate(int state) {
-	if (state != 0 || state != 1)
+	if (state != 0 && state != 1) {
+    Serial.println("Valor del rele no valido");
 		return;
+	}
 	
 	Serial.print("[+] Estado del relé cambiado a ");
 	state == 1 ? Serial.println("on") : Serial.println("off");
@@ -388,13 +395,16 @@ void checkrelay() {
 	if (tc.getHours()   == RELAYH &&
 		tc.getMinutes() == RELAYM &&
 		tc.getSeconds() == RELAYS) {
+      Serial.println("[+] Es la hora de activar el relé");
 			relaystate(1);
 			actTime = tc.getEpochTime();
 	}
 
 	if (RELAYD) {
-		if (tc.getEpochTime() >= actTime + RELAYD) /* El rele se apaga */
+		if (tc.getEpochTime() >= actTime + RELAYD) { /* El rele se apaga */
+      Serial.println("[+] Es la hora de apagar el relé");
 			relaystate(0);
+		}
 	}
 	else {
 		if (waterread())
