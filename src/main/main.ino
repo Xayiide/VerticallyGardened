@@ -91,17 +91,10 @@ void setup() {
 	Serial.begin(115200);
 	Wire.begin();
 
-	shtinit();
-	veml7700init();
-	yl69init();
-	waterinit();
-
 	pinMode(RELAYPIN, OUTPUT); // Relay pin -> D6
 	connectwifi(ssid, pass);
-	client.setServer(ThingsboardHost, 1883); /* Set el published de MQTT */
-	tc.begin(); /* Inicia cliente de NTP */
 
-	// Defaault values:
+	// Default values:
 	// ArduinoOTA.setPort(8266);
 	// ArduinoOTA.setHostname("esp8266-[ChipID]");
 	// ArduinoOTA.setPassword("");
@@ -141,6 +134,14 @@ void setup() {
 	});
 
 	ArduinoOTA.begin();
+
+	shtinit();
+	veml7700init();
+	yl69init();
+	waterinit();
+
+	client.setServer(ThingsboardHost, 1883); /* Set el published de MQTT */
+	tc.begin(); /* Inicia cliente de NTP */
 }
 
 
@@ -199,7 +200,6 @@ void veml7700init() { /* VEML7700 funciona por I2C. */
 	veml.begin();
 	veml.setGain(VEML7700_GAIN_1_8);
 	veml.setIntegrationTime(VEML7700_IT_800MS);
-
 	veml.setLowThreshold (10000);
 	veml.setHighThreshold(20000);
 	veml.interruptEnable(false);
