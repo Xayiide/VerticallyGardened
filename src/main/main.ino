@@ -1,14 +1,14 @@
-#include <ESP8266WiFi.h>
-#include <Wire.h>
-#include <NTPClient.h>
-#include <WiFiUdp.h>
+#include <ESP8266WiFi.h>       /* WiFi Client        */
+#include <Wire.h>              /* I2C                */
+#include <NTPClient.h>         /* NTP Protocol. Time */
+#include <WiFiUdp.h>           /* WiFi UDP support   */
 
-#include <ESP8266mDNS.h>
-#include <ArduinoOTA.h>
+#include <ESP8266mDNS.h>       /* DNS resolution     */
+#include <ArduinoOTA.h>        /* OTA                */
 
-#include <SHTSensor.h>
-#include <Adafruit_VEML7700.h>
-#include <PubSubClient.h>
+#include <SHTSensor.h>         /* SHT85              */
+#include <Adafruit_VEML7700.h> /* VEML7700           */
+#include <PubSubClient.h>      /* MQTT               */
 
 
 
@@ -18,9 +18,9 @@
 #define WATERPIN  D7
 #define RELAYPIN  12 /* D6 */
 
-#define RELAYH 9
-#define RELAYM 0
-#define RELAYS 0
+#define RELAYH 9 /* Hora a la que se activa el rele */
+#define RELAYM 0 /* Minuto                          */
+#define RELAYS 0 /* Segundo                         */
 #define RELAYD 1800 /* Tiempo que el rele estara activado. 0 si no se usa */
 
 #define ATTRLEN 128 /* Longitud de los atributos que mandamos a thingsboard*/
@@ -34,8 +34,6 @@
 #define SOILHUMHIGHTH 400
 #define LUXLOWTH      20
 #define LUXHIGHTH     6000
-
-
 
 #define TBTOKEN "q4M2LoLE5GeWvSvsuFj9"
 
@@ -92,7 +90,6 @@ void checkrelay();
 void setup() {
 	Serial.begin(115200);
 	Wire.begin();
-	
 
 	shtinit();
 	veml7700init();
@@ -103,51 +100,48 @@ void setup() {
 	connectwifi(ssid, pass);
 	client.setServer(ThingsboardHost, 1883); /* Set el published de MQTT */
 	tc.begin(); /* Inicia cliente de NTP */
+
+	// Defaault values:
+	// ArduinoOTA.setPort(8266);
+	// ArduinoOTA.setHostname("esp8266-[ChipID]");
+	// ArduinoOTA.setPassword("");
+	// ArduinoOTA.setPasswordHash(MD5(""));
+
+	ArduinoOTA.onStart([]() {
+		String type;
+		if (ArduinoOTA.getCommand() == U_FLASH)
+			type = "sketch";
+		else
+			type = "filesystem";
+
+		Serial.println("Start updating " + type);
+	});
+
+	ArduinoOTA.onEnd([]() {
+		Serial.println("\nEnd");
+	});
+
+	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+		Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+	});
+
+	ArduinoOTA.onError([] (ota_error_t error) {
+		Serial.println("Error[%u]: ", error);
+		if (error == OTA_AUTH_ERROR) {
+			Serial.println("Auth Failed");
+		} else if (error == OTA_BEGIN_ERROR) {
+			Serial.println("Begin Failed");
+		} else if (error == OTA_CONNECT_ERROR) {
+			Serial.println("Connect Failed");
+		} else if (error == OTA_RECEIVE_ERROR) {
+			Serial.println("Receive Failed");
+		} else if (error == OTA_END_ERROR) {
+			Serial.println("End Failed");
+		}
+	});
+
+	ArduinoOTA.begin();
 }
-
-// Defaault values:
-// ArduinoOTA.setPort(8266);
-// ArduinoOTA.setHostname("esp8266-[ChipID]");
-// ArduinoOTA.setPassword("");
-// ArduinoOTA.setPasswordHash(MD5(""));
-
-ArduinoOTA.onStart([]() {
-	String type;
-	if (ArduinoOTA.getCommand() == U_FLASH)
-		type = "sketch";
-	else
-		type = "filesystem";
-
-	Serial.println("Start updating " + type);
-});
-
-ArduinoOTA.onEnd([]() {
-	Serial.println("\nEnd");
-});
-
-ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-	Serial.println("Progress: %u%%\r", (progress / (total / 100)));
-});
-
-ArduinoOTA.onError([] (ota_error_t error) {
-	Serial.println("Error[%u]: ", error);
-	if (error == OTA_AUTH_ERROR) {
-		Serial.println("Auth Failed");
-	} else if (error == OTA_BEGIN_ERROR) {
-      Serial.println("Begin Failed");
-    } else if (error == OTA_CONNECT_ERROR) {
-      Serial.println("Connect Failed");
-    } else if (error == OTA_RECEIVE_ERROR) {
-      Serial.println("Receive Failed");
-    } else if (error == OTA_END_ERROR) {
-      Serial.println("End Failed");
-    }
-});
-
-ArduinoOTA.begin();
-Serial.println("Ready");
-Serial.print("IP: ");
-Serial.println(WiFi.localIP());
 
 
 void loop() {
@@ -172,7 +166,7 @@ void loop() {
 	watersend(water);
 
 	delay(2000);
-  Serial.print("\n\n\n\n");
+	Serial.print("\n\n\n\n");
 }
 
 
@@ -196,12 +190,10 @@ void connectwifi(const char *ssid, const char *pass) {
 	Serial.println(WiFi.localIP());
 }
 
-
 void shtinit() { /* SHT85 functiona por I2C */
 	sht.init();
 	Serial.println("[*] SHT85 inicializado");
 }
-
 
 void veml7700init() { /* VEML7700 funciona por I2C. */
 	veml.begin();
@@ -214,12 +206,10 @@ void veml7700init() { /* VEML7700 funciona por I2C. */
 	Serial.println("[*] VEML7700 inicializado");
 }
 
-
 void yl69init() {
 	pinMode(YL69PIN, INPUT);
 	Serial.println("[*] YL69 inicializado");
 }
-
 
 void waterinit() {
 	pinMode(WATERPIN, INPUT);
