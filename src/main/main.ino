@@ -3,9 +3,14 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 
+#include <ESP8266mDNS.h>
+#include <ArduinoOTA.h>
+
 #include <SHTSensor.h>
 #include <Adafruit_VEML7700.h>
 #include <PubSubClient.h>
+
+
 
 
 
@@ -87,6 +92,7 @@ void checkrelay();
 void setup() {
 	Serial.begin(115200);
 	Wire.begin();
+	
 
 	shtinit();
 	veml7700init();
@@ -99,11 +105,56 @@ void setup() {
 	tc.begin(); /* Inicia cliente de NTP */
 }
 
+// Defaault values:
+// ArduinoOTA.setPort(8266);
+// ArduinoOTA.setHostname("esp8266-[ChipID]");
+// ArduinoOTA.setPassword("");
+// ArduinoOTA.setPasswordHash(MD5(""));
+
+ArduinoOTA.onStart([]() {
+	String type;
+	if (ArduinoOTA.getCommand() == U_FLASH)
+		type = "sketch";
+	else
+		type = "filesystem";
+
+	Serial.println("Start updating " + type);
+});
+
+ArduinoOTA.onEnd([]() {
+	Serial.println("\nEnd");
+});
+
+ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+	Serial.println("Progress: %u%%\r", (progress / (total / 100)));
+});
+
+ArduinoOTA.onError([] (ota_error_t error) {
+	Serial.println("Error[%u]: ", error);
+	if (error == OTA_AUTH_ERROR) {
+		Serial.println("Auth Failed");
+	} else if (error == OTA_BEGIN_ERROR) {
+      Serial.println("Begin Failed");
+    } else if (error == OTA_CONNECT_ERROR) {
+      Serial.println("Connect Failed");
+    } else if (error == OTA_RECEIVE_ERROR) {
+      Serial.println("Receive Failed");
+    } else if (error == OTA_END_ERROR) {
+      Serial.println("End Failed");
+    }
+});
+
+ArduinoOTA.begin();
+Serial.println("Ready");
+Serial.print("IP: ");
+Serial.println(WiFi.localIP());
 
 
 void loop() {
 	if (!client.connected())
 		reconnect();
+
+	ArduinoOTA.handle();
 
 	tc.update(); /* Update NTP client time */
 	checkrelay(); /* Check if relay should be activated or deactivated */
@@ -129,6 +180,7 @@ void loop() {
  * * * * * * * * * * * * * * * INITIALIZATION * * * * * * * * * * * * * * * 
  **************************************************************************/
 void connectwifi(const char *ssid, const char *pass) {
+	// WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, pass);
 	Serial.print("[*] Connecting to: ");
 	Serial.println(WiFi.SSID());
