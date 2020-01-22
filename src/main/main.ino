@@ -21,7 +21,6 @@
 
 #define RELAYH 9 /* Hora a la que se activa el rele */
 #define RELAYM 0 /* Minuto                          */
-#define RELAYS 0 /* Segundo                         */
 #define RELAYD 1800 /* Tiempo que el rele estara activado. 0 si no se usa */
 
 #define ATTRLEN 128 /* Longitud de los atributos que mandamos a thingsboard*/
@@ -38,7 +37,8 @@
 
 #define TBTOKEN "q4M2LoLE5GeWvSvsuFj9"
 
-unsigned long actTime = 0; /* Guarda el tiempo en el que se activa el rele */
+unsigned long actTime   = 0; /* Guarda el tiempo en el que se activa el rele */
+unsigned int  lastwater = 0; /* Guarda el valor de la última lectura de agua */
 
 const char *ssid        = "POWER_UP";
 const char *pass        = "RosquillaGl4s3ada!";
@@ -59,6 +59,9 @@ int status = WL_IDLE_STATUS;
 SHTSensor sht;
 Adafruit_VEML7700 veml = Adafruit_VEML7700();
 
+/* Print banner */
+void printbanner();
+void printbanner2();
 
 
 /* Funciones de inicializacion */
@@ -92,9 +95,11 @@ void setup() {
 	Serial.begin(115200);
 	Wire.begin();
 
+	printbanner2();
+
 	pinMode(RELAYPIN, OUTPUT); // Relay pin -> D6
-  pinMode(D3, INPUT);        // Flash Button
-  pinMode(D4, OUTPUT);
+	pinMode(D3, INPUT);        // Flash Button
+	pinMode(D4, OUTPUT);
 	connectwifi(ssid, pass);
 
 	// Default values:
@@ -184,8 +189,8 @@ void loop() {
 void connectwifi(const char *ssid, const char *pass) {
 	// WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, pass);
-	Serial.print("[*] Connecting to: ");
-	Serial.println(WiFi.SSID());
+	Serial.print("\t\t[*] Connecting to: ");
+	Serial.print(WiFi.SSID());
 
 	int i = 0;
 	while (WiFi.status() != WL_CONNECTED) {
@@ -194,13 +199,14 @@ void connectwifi(const char *ssid, const char *pass) {
 	}
 
 	Serial.println();
-	Serial.println("[+] Connection established");
-	Serial.println(WiFi.localIP());
+	Serial.print("\t\t[+] Connection established. [");
+	Serial.print(WiFi.localIP());
+  Serial.println("]");
 }
 
 void shtinit() { /* SHT85 functiona por I2C */
 	sht.init();
-	Serial.println("[*] SHT85 inicializado");
+	Serial.println("\t\t[*] SHT85 inicializado");
 }
 
 void veml7700init() { /* VEML7700 funciona por I2C. */
@@ -210,17 +216,17 @@ void veml7700init() { /* VEML7700 funciona por I2C. */
 	veml.setLowThreshold (10000);
 	veml.setHighThreshold(20000);
 	veml.interruptEnable(false);
-	Serial.println("[*] VEML7700 inicializado");
+	Serial.println("\t\t[*] VEML7700 inicializado");
 }
 
 void yl69init() {
 	pinMode(YL69PIN, INPUT);
-	Serial.println("[*] YL69 inicializado");
+	Serial.println("\t\t[*] YL69 inicializado");
 }
 
 void waterinit() {
 	pinMode(WATERPIN, INPUT);
-	Serial.println("[*] Water inicializado");
+	Serial.println("\t\t[*] Water inicializado");
 }
 
 
@@ -231,10 +237,10 @@ float sht85readhum() {
 	sht.readSample();
 	float hum = sht.getHumidity();
 	if (hum <= HUMLOWTH) {
-		Serial.println("[!!] El ambiente es demasiado seco.");
+		Serial.println("\t[!!] El ambiente es demasiado seco.");
 	}
 	else if (hum >= HUMHIGHTH) {
-		Serial.println("[!!] El ambiente es demasiado húmedo.");
+		Serial.println("\t[!!] El ambiente es demasiado húmedo.");
 	}
 	Serial.print("[+] Humedad ambiente: ");
 	Serial.println(hum);
@@ -246,10 +252,10 @@ float sht85readtemp() {
 	sht.readSample();
 	float temp = sht.getTemperature();
 	if (temp <= TEMPLOWTH) {
-		Serial.println("[!!] La temperatura es demasiado baja.");
+		Serial.println("\t[!!] La temperatura es demasiado baja.");
 	}
 	else if (temp >= TEMPHIGHTH) {
-		Serial.println("[!!] La temperatura es demasiado alta.");
+		Serial.println("\t[!!] La temperatura es demasiado alta.");
 	}
 	Serial.print("[+] Temperatura: ");
 	Serial.println(temp);
@@ -261,10 +267,10 @@ float sht85readtemp() {
 float yl69read() {
 	float soilhum = analogRead(YL69PIN);
 	if (soilhum >= SOILHUMLOWTH) { /* 800-1024 */
-		Serial.println("[!!] La humedad del suelo es demasiado baja.");
+		Serial.println("\t[!!] La humedad del suelo es demasiado baja.");
 	}
 	else if (soilhum <= SOILHUMHIGHTH) { /* 0-400 */
-		Serial.println("[!!] La humedad del suelo es demasiado alta.");
+		Serial.println("\t[!!] La humedad del suelo es demasiado alta.");
 	}
 	Serial.print("[+] Humedad soil: ");
 	Serial.println(soilhum);
@@ -292,8 +298,10 @@ int waterread() {
 		waterstate = 1;
 	Serial.print("[+] Agua: ");
 	Serial.println(waterstate);
+	lastwater = waterstate;
 	return waterstate; 
 }
+
 
 /**************************************************************************
  * * * * * * * * * * * * * * * SEND SENSOR DATA * * * * * * * * * * * * * * 
@@ -359,12 +367,12 @@ void veml7700luxsend(int lux) {
  **************************************************************************/
 void relaystate(int state) {
 	if (state != 0 && state != 1) {
-    Serial.println("Valor del rele no valido");
+		Serial.println("Valor del rele no valido");
 		return;
 	}
 	
-	Serial.print("[+] Estado del relé cambiado a ");
-	state == 1 ? Serial.println("on") : Serial.println("off");
+	Serial.print("[+] Estado del relé: ");
+	state == 1 ? Serial.println("ON") : Serial.println("OFF");
 
 	digitalWrite(RELAYPIN, state);
 }
@@ -380,9 +388,10 @@ void reconnect() {
 			}
 			Serial.println("\n[+] Connected to AP");
 		}
-		Serial.println("[*] Connecting to Thingsboard node...");
+		Serial.println("\t\t[*] Connecting to Thingsboard node...");
 		if (client.connect("ESP8266", TBTOKEN, NULL)) {
-			Serial.println("[+] Done");
+			Serial.println("\t\t[+] Done connecting.");
+			Serial.println("\t\t----------------\n");
 		}
 		else {
 			Serial.println("[!] Failed. Retrying.");
@@ -393,25 +402,25 @@ void reconnect() {
 
 void checkrelay() {
 	if (tc.getHours()   == RELAYH &&
-		tc.getMinutes() == RELAYM &&
-		tc.getSeconds() == RELAYS) {
-      Serial.println("[+] Es la hora de activar el relé");
+		tc.getMinutes() == RELAYM) {
+			Serial.println("[+] Es la hora de activar el relé");
 			relaystate(1);
 			actTime = tc.getEpochTime();
 	}
 
-	if (RELAYD) {
+	if (RELAYD && actTime != 0) {
 		if (tc.getEpochTime() >= actTime + RELAYD) { /* El rele se apaga */
-      Serial.println("[+] Es la hora de apagar el relé");
+			Serial.println("[+] Es la hora de apagar el relé");
 			relaystate(0);
 		}
 	}
 	else {
-		if (waterread())
+		if (lastwater) {
+			Serial.println("[*] Se cambia el relé por el estado del agua");
 			relaystate(0);
+		}
 	}
 }
-
 
 
  /* 0  -> D3
@@ -425,3 +434,60 @@ void checkrelay() {
     14 -> D5
     15 -> D8
     16 -> D0 */
+
+
+
+
+
+/* Pa presumir */
+void printbanner() {
+	Serial.println(" __     __        _   _           _ _       ");
+	Serial.println(" \\ \\   \/ \/__ _ __| |_(_) ___ __ _| | |_   _ ");
+	Serial.println("  \\ \\ \/ \/ _ \\ \'__| __| |\/ __\/ _` | | | | | |");
+	Serial.println("   \\ V \/  __\/ |  | |_| | (_| (_| | | | |_| |");
+	Serial.println("    \\_\/ \\___|_|   \\__|_|\\___\\__,_|_|_|\\__, |");
+	Serial.println("                                      |___/ ");
+	
+	Serial.println("   ____               _                     _ ");
+	Serial.println("  / ___| __ _ _ __ __| | ___ _ __   ___  __| |");
+	Serial.println(" | |  _ \/ _` | \'__\/ _` |\/ _ \\ \'_ \\ \/ _ \\\/ _` |");
+	Serial.println(" | |_| | (_| | | | (_| |  __/ | | |  __/ (_| |");
+	Serial.println("  \\____|\\__,_|_|  \\__,_|\\___|_| |_|\\___|\\__,_|\n");
+	Serial.println("\tPilar Orozco");
+	Serial.println("\tSebastián Luchetti");
+	Serial.println("\tVerónica Ballero");
+	Serial.println("\tEduardo Pozo");
+	Serial.println("\n");
+}
+
+/* Este es mejor */
+void printbanner2() {
+	Serial.println(" ██▒   █▓▓█████  ██▀███  ▄▄▄█████▓ ██▓ ▄████▄   ▄▄▄       ██▓     ██▓   ▓██   ██▓");
+	Serial.println("▓██░   █▒▓█   ▀ ▓██ ▒ ██▒▓  ██▒ ▓▒▓██▒▒██▀ ▀█  ▒████▄    ▓██▒    ▓██▒    ▒██  ██▒");
+	Serial.println(" ▓██  █▒░▒███   ▓██ ░▄█ ▒▒ ▓██░ ▒░▒██▒▒▓█    ▄ ▒██  ▀█▄  ▒██░    ▒██░     ▒██ ██░");
+	Serial.println("  ▒██ █░░▒▓█  ▄ ▒██▀▀█▄  ░ ▓██▓ ░ ░██░▒▓▓▄ ▄██▒░██▄▄▄▄██ ▒██░    ▒██░     ░ ▐██▓░");
+	Serial.println("   ▒▀█░  ░▒████▒░██▓ ▒██▒  ▒██▒ ░ ░██░▒ ▓███▀ ░ ▓█   ▓██▒░██████▒░██████▒ ░ ██▒▓░");
+	Serial.println("   ░ ▐░  ░░ ▒░ ░░ ▒▓ ░▒▓░  ▒ ░░   ░▓  ░ ░▒ ▒  ░ ▒▒   ▓▒█░░ ▒░▓  ░░ ▒░▓  ░  ██▒▒▒ ");
+	Serial.println("   ░ ░░   ░ ░  ░  ░▒ ░ ▒░    ░     ▒ ░  ░  ▒     ▒   ▒▒ ░░ ░ ▒  ░░ ░ ▒  ░▓██ ░▒░ ");
+	Serial.println("     ░░     ░     ░░   ░   ░       ▒ ░░          ░   ▒     ░ ░     ░ ░   ▒ ▒ ░░  ");
+	Serial.println("      ░     ░  ░   ░               ░  ░ ░            ░  ░    ░  ░    ░  ░░ ░     ");
+	Serial.println("     ░                                ░                                  ░ ░     ");
+	Serial.println("  ▄████  ▄▄▄       ██▀███  ▓█████▄ ▓█████  ███▄    █ ▓█████ ▓█████▄              ");
+	Serial.println(" ██▒ ▀█▒▒████▄    ▓██ ▒ ██▒▒██▀ ██▌▓█   ▀  ██ ▀█   █ ▓█   ▀ ▒██▀ ██▌             ");
+	Serial.println("▒██░▄▄▄░▒██  ▀█▄  ▓██ ░▄█ ▒░██   █▌▒███   ▓██  ▀█ ██▒▒███   ░██   █▌             ");
+	Serial.println("░▓█  ██▓░██▄▄▄▄██ ▒██▀▀█▄  ░▓█▄   ▌▒▓█  ▄ ▓██▒  ▐▌██▒▒▓█  ▄ ░▓█▄   ▌             ");
+	Serial.println("░▒▓███▀▒ ▓█   ▓██▒░██▓ ▒██▒░▒████▓ ░▒████▒▒██░   ▓██░░▒████▒░▒████▓              ");
+	Serial.println(" ░▒   ▒  ▒▒   ▓▒█░░ ▒▓ ░▒▓░ ▒▒▓  ▒ ░░ ▒░ ░░ ▒░   ▒ ▒ ░░ ▒░ ░ ▒▒▓  ▒              ");
+	Serial.println("  ░   ░   ▒   ▒▒ ░  ░▒ ░ ▒░ ░ ▒  ▒  ░ ░  ░░ ░░   ░ ▒░ ░ ░  ░ ░ ▒  ▒              ");
+	Serial.println("░ ░   ░   ░   ▒     ░░   ░  ░ ░  ░    ░      ░   ░ ░    ░    ░ ░  ░              ");
+	Serial.println("      ░       ░  ░   ░        ░       ░  ░         ░    ░  ░   ░                 ");
+	Serial.println("                            ░                                ░                   ");
+	Serial.println("\tPilar Orozco");
+	Serial.println("\tSebastián Luchetti");
+	Serial.println("\tVerónica Ballero");
+	Serial.println("\tEduardo Pozo");
+	Serial.println("\n");
+
+}
+
+
